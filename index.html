@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard GAV · Control Presupuestario 2026</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+  :root {
+    --bg:#f5f4f0; --surface:#fff; --surface2:#f0efe9; --border:#d8d6ce; --border2:#c8c6bc;
+    --text:#1a1916; --text2:#6b6960; --text3:#9b9a92;
+    --green:#2d6a2d; --green-bg:#e8f2e8; --red:#8b2020; --red-bg:#f5e8e8;
+    --blue:#1a3a6b; --accent:#2d4a1e;
+    --font:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
+
+  /* STEPS */
+  .screen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;gap:1.5rem}
+  .screen-logo{font-family:var(--mono);font-size:11px;letter-spacing:.15em;color:var(--text3);text-transform:uppercase}
+  .step-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:2.5rem;max-width:500px;width:100%}
+  .step-card h2{font-size:18px;font-weight:600;margin-bottom:.4rem}
+  .step-card p{font-size:13px;color:var(--text2);margin-bottom:1.5rem;line-height:1.6}
+  .step-indicator{display:flex;gap:6px;margin-bottom:1.5rem}
+  .step-dot{width:8px;height:8px;border-radius:50%;background:var(--border2)}
+  .step-dot.active{background:var(--text)}
+  .step-dot.done{background:var(--green)}
+
+  /* Drop zone */
+  .drop-zone{border:2px dashed var(--border2);border-radius:8px;padding:2.5rem 1.5rem;cursor:pointer;transition:border-color .15s,background .15s;text-align:center}
+  .drop-zone:hover,.drop-zone.drag-over{border-color:var(--accent);background:var(--surface2)}
+  .drop-zone .dz-icon{font-size:28px;margin-bottom:.5rem}
+  .drop-zone .dz-label{font-size:13px;color:var(--text2)}
+  .drop-zone .dz-sub{font-size:11px;color:var(--text3);margin-top:.25rem;font-family:var(--mono)}
+  input[type=file]{display:none}
+
+  /* Loaded state */
+  .file-loaded{display:flex;align-items:center;gap:.75rem;background:var(--green-bg);border:1px solid #b8d8b8;border-radius:8px;padding:.75rem 1rem;margin-bottom:1rem}
+  .file-loaded .fl-icon{font-size:20px}
+  .file-loaded .fl-name{font-size:13px;font-weight:500;color:var(--green)}
+  .file-loaded .fl-sub{font-size:11px;color:var(--green);opacity:.8;font-family:var(--mono)}
+  .btn-next{width:100%;padding:.75rem;background:var(--text);color:var(--bg);border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;font-family:var(--font);transition:opacity .1s;margin-top:.75rem}
+  .btn-next:hover{opacity:.85}
+  .btn-next:disabled{opacity:.35;cursor:not-allowed}
+  .err{color:var(--red);font-size:12px;margin-top:.5rem;display:none}
+  .hint-small{font-size:11px;color:var(--text3);text-align:center}
+
+  /* TOPBAR */
+  #dashboard{display:none}
+  .topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:.75rem 1.5rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+  .topbar-left{display:flex;align-items:center;gap:1rem}
+  .topbar-title{font-weight:600;font-size:14px}
+  .topbar-sub{font-size:11px;color:var(--text3);font-family:var(--mono)}
+  .data-badge{background:var(--green-bg);color:var(--green);font-size:11px;padding:3px 10px;border-radius:20px;font-family:var(--mono);font-weight:500}
+  .topbar-actions{display:flex;gap:8px}
+  .btn-sm{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;color:var(--text2);font-family:var(--font);transition:background .1s}
+  .btn-sm:hover{background:var(--border)}
+  .btn-sm.primary{background:var(--text);color:var(--bg);border-color:var(--text)}
+  .btn-sm.primary:hover{opacity:.85}
+
+  .main{padding:1.5rem;max-width:1200px;margin:0 auto}
+  .months-nav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.5rem}
+  .m-btn{padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;font-size:12px;cursor:pointer;color:var(--text2);font-family:var(--mono);transition:all .1s}
+  .m-btn:hover{border-color:var(--border2);background:var(--surface2)}
+  .m-btn.active{background:var(--text);color:var(--bg);border-color:var(--text)}
+
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:1.5rem}
+  .kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1rem 1.25rem}
+  .kpi-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;font-family:var(--mono)}
+  .kpi-value{font-size:22px;font-weight:600;font-family:var(--mono);color:var(--text)}
+  .kpi-sub{font-size:11px;color:var(--text3);margin-top:3px}
+  .kpi.kpi-alert .kpi-value{color:var(--red)}
+  .kpi.kpi-ok .kpi-value{color:var(--green)}
+
+  .tab-row{display:flex;border-bottom:1px solid var(--border);margin-bottom:1.5rem}
+  .tab{padding:8px 20px;font-size:13px;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;background:none;border-top:none;border-left:none;border-right:none;font-family:var(--font);transition:color .1s;margin-bottom:-1px}
+  .tab:hover{color:var(--text)}
+  .tab.active{color:var(--text);border-bottom-color:var(--text);font-weight:500}
+  .panel{display:none}.panel.active{display:block}
+
+  .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem}
+  @media(max-width:700px){.chart-grid{grid-template-columns:1fr}}
+  .chart-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.25rem}
+  .chart-title{font-size:12px;font-weight:500;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.07em;font-family:var(--mono)}
+  .legend-row{display:flex;gap:16px;margin-bottom:10px;font-size:11px;color:var(--text3)}
+  .legend-dot{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:4px}
+
+  .section-label{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:10px;font-family:var(--mono)}
+  .hint{font-size:11px;color:var(--text3);margin-bottom:10px;font-style:italic}
+  .table-wrap{overflow-x:auto;margin-bottom:2rem}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead th{font-weight:500;font-size:11px;color:var(--text3);text-align:right;padding:7px 10px;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.06em;font-family:var(--mono);background:var(--surface2)}
+  thead th:first-child{text-align:left}
+  tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+  tbody tr:last-child{border-bottom:none}
+  tbody tr:hover{background:var(--surface2)}
+  tbody td{padding:9px 10px;color:var(--text);text-align:right}
+  tbody td:first-child{text-align:left}
+  .total-row td{font-weight:600;background:var(--surface2);border-top:1px solid var(--border2)!important;font-family:var(--mono);font-size:12px}
+
+  .badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;font-family:var(--mono)}
+  .badge-over{background:var(--red-bg);color:var(--red)}
+  .badge-under{background:var(--green-bg);color:var(--green)}
+  .badge-neutral{background:var(--surface2);color:var(--text3)}
+  .cpill{font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:1px 7px;border-radius:3px;font-family:var(--mono);white-space:nowrap}
+
+  tr.drillable{cursor:pointer}
+  tr.drillable td.drill-name::before{content:"▶ ";font-size:9px;color:var(--text3)}
+  tr.drillable.open td.drill-name::before{content:"▼ ";color:var(--text2)}
+  tr.drillable:hover td.drill-name{color:var(--blue)}
+  tr.drill-row{background:#f8f7f3}
+  tr.drill-row td{padding:0}
+  tr.drill-row.hidden{display:none}
+  .drill-inner table{font-size:12px}
+  .drill-inner thead th{background:#edecea;font-size:10px;padding:5px 10px 5px 32px}
+  .drill-inner thead th:first-child{text-align:left}
+  .drill-inner tbody td{padding:6px 10px 6px 32px;color:var(--text2);border-bottom:1px solid #e8e6e0}
+  .drill-inner tbody tr:hover{background:#eae8e3}
+  .drill-total td{font-weight:500;background:#edecea;border-top:1px solid #d8d6ce!important;font-family:var(--mono);font-size:11px}
+  .mono{font-family:var(--mono)}
+
+
+  /* ── FILTROS DETALLE ── */
+  .filter-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+  .search-wrap{position:relative;flex:1;min-width:200px}
+  .search-wrap input{width:100%;padding:7px 12px 7px 32px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:var(--font);background:var(--surface);color:var(--text);outline:none;transition:border-color .15s}
+  .search-wrap input:focus{border-color:var(--border2)}
+  .search-wrap .search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--text3);pointer-events:none}
+  .search-wrap .clear-btn{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:0;line-height:1;display:none}
+  .search-wrap .clear-btn.visible{display:block}
+  .filter-chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{padding:4px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;font-size:11px;cursor:pointer;color:var(--text2);font-family:var(--mono);transition:all .1s;white-space:nowrap}
+  .chip:hover{border-color:var(--border2);background:var(--surface2)}
+  .chip.active{background:var(--text);color:var(--bg);border-color:var(--text)}
+  .results-count{font-size:11px;color:var(--text3);font-family:var(--mono);white-space:nowrap;padding-top:2px}
+  .no-results{text-align:center;padding:2rem;color:var(--text3);font-size:13px}
+
+  #loading{position:fixed;inset:0;background:rgba(245,244,240,.92);display:none;align-items:center;justify-content:center;z-index:999}
+  .spinner{width:28px;height:28px;border:2px solid var(--border2);border-top-color:var(--text);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto .75rem}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div id="loading" style="display:none">
+  <div style="text-align:center"><div class="spinner"></div><p style="font-size:13px;color:var(--text2)" id="loadingMsg">Procesando...</p></div>
+</div>
+
+<!-- PASO 1: Cargar Presupuesto -->
+<div class="screen" id="screen1">
+  <div class="screen-logo">Dashboard GAV · Control Presupuestario 2026</div>
+  <div class="step-card">
+    <div class="step-indicator">
+      <div class="step-dot active"></div>
+      <div class="step-dot"></div>
+      <div class="step-dot"></div>
+    </div>
+    <h2>Paso 1 — Cargar presupuesto</h2>
+    <p>Arrastra tu archivo <strong>Presupuesto_GAV_CCXXX.xlsx</strong> para configurar el dashboard con los datos de tu área. Solo necesitas hacer esto una vez.</p>
+    <div class="drop-zone" id="dz1" onclick="document.getElementById('fi1').click()">
+      <div class="dz-icon">📋</div>
+      <div class="dz-label">Arrastra el <strong>Presupuesto_GAV</strong> aquí</div>
+      <div class="dz-sub">o haz clic para buscar · .xlsx</div>
+    </div>
+    <input type="file" id="fi1" accept=".xlsx,.xls">
+    <div class="err" id="err1"></div>
+    <div id="presLoaded" style="display:none"></div>
+    <button class="btn-next" id="btn1" disabled onclick="goToStep2()">Continuar →</button>
+  </div>
+  <div class="hint-small">Los archivos se procesan localmente · No se envía nada a internet</div>
+</div>
+
+
+<!-- PASO 1.5: Grupos de Dimensiones (opcional) -->
+<div class="screen" id="screen1b" style="display:none">
+  <div class="screen-logo">Dashboard GAV · Control Presupuestario 2026</div>
+  <div class="step-card">
+    <div class="step-indicator">
+      <div class="step-dot done"></div>
+      <div class="step-dot active"></div>
+      <div class="step-dot"></div>
+    </div>
+    <h2>Paso 2 — Grupos de dimensiones <span style="font-size:12px;font-weight:400;color:var(--text3)">(opcional)</span></h2>
+    <p>Arrastra el archivo <strong>Grupos_Dimensiones_de_Gastos.xlsx</strong> para que el dashboard asigne correctamente el concepto a todas las dimensiones de gasto, incluso las que no están en el presupuesto.<br><br>Si no lo cargas, se usará la tabla de grupos integrada en el dashboard.</p>
+    <div class="drop-zone" id="dz1b" onclick="document.getElementById('fi1b').click()">
+      <div class="dz-icon">🗂️</div>
+      <div class="dz-label">Arrastra el <strong>Grupos_Dimensiones_de_Gastos.xlsx</strong> aquí</div>
+      <div class="dz-sub">o haz clic para buscar · .xlsx · opcional</div>
+    </div>
+    <input type="file" id="fi1b" accept=".xlsx,.xls">
+    <div class="err" id="err1b"></div>
+    <div id="gruposLoaded" style="display:none"></div>
+    <button class="btn-next" id="btn1b" onclick="goToStep3()">Continuar →</button>
+    <button class="btn-sm" style="width:100%;margin-top:.5rem;text-align:center" onclick="backToStep1b()">← Cambiar presupuesto</button>
+  </div>
+  <div class="hint-small">Este archivo actualiza los grupos de dimensiones · Procesado localmente</div>
+</div>
+
+<!-- PASO 2: Cargar Data -->
+<div class="screen" id="screen2" style="display:none">
+  <div class="screen-logo">Dashboard GAV · Control Presupuestario 2026</div>
+  <div class="step-card">
+    <div class="step-indicator">
+      <div class="step-dot done"></div>
+      <div class="step-dot done"></div>
+      <div class="step-dot active"></div>
+    </div>
+    <h2>Paso 3 — Cargar datos reales</h2>
+    <p>Arrastra el <strong>Data.xlsx</strong> exportado desde contabilidad. Este paso lo repetirás cada mes con el archivo actualizado.</p>
+    <div class="drop-zone" id="dz2" onclick="document.getElementById('fi2').click()">
+      <div class="dz-icon">📊</div>
+      <div class="dz-label">Arrastra el <strong>Data.xlsx</strong> aquí</div>
+      <div class="dz-sub">o haz clic para buscar · .xlsx</div>
+    </div>
+    <input type="file" id="fi2" accept=".xlsx,.xls">
+    <div class="err" id="err2"></div>
+    <div id="dataLoaded" style="display:none"></div>
+    <button class="btn-next" id="btn2" disabled onclick="launchDashboard()">Ver dashboard →</button>
+    <button class="btn-sm" style="width:100%;margin-top:.5rem;text-align:center" onclick="backToStep1b()">← Volver</button>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div>
+        <div class="topbar-title" id="tbTitle">Dashboard GAV</div>
+        <div class="topbar-sub" id="tbSub">—</div>
+      </div>
+      <span class="data-badge" id="dataBadge">—</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn-sm primary" onclick="exportarExcel()">⬇ Exportar Excel</button>
+      <button class="btn-sm" onclick="updateData()">↻ Actualizar datos</button>
+      <button class="btn-sm" onclick="fullReset()">↩ Cambiar área</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="months-nav" id="monthsNav"></div>
+    <div class="kpi-grid" id="kpiArea"></div>
+    <div class="tab-row">
+      <button class="tab active" onclick="switchTab('resumen')">Resumen por concepto</button>
+      <button class="tab" onclick="switchTab('detalle')">Detalle por gasto</button>
+      <button class="tab" onclick="switchTab('tendencia')">Tendencia mensual</button>
+    </div>
+    <div id="panel-resumen" class="panel active">
+      <div class="chart-grid">
+        <div class="chart-box">
+          <div class="chart-title">Real vs Presupuesto por concepto</div>
+          <div class="legend-row"><span><span class="legend-dot" style="background:#1a3a6b"></span>Presupuesto</span><span><span class="legend-dot" style="background:#2d6a2d"></span>Real</span></div>
+          <div style="position:relative;height:240px"><canvas id="chartConcepto" role="img" aria-label="Real vs presupuesto por concepto"></canvas></div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">Desviación % por concepto</div>
+          <div style="position:relative;height:240px"><canvas id="chartDev" role="img" aria-label="Desviación porcentual"></canvas></div>
+        </div>
+      </div>
+      <div class="section-label">Resumen por grupo</div>
+      <div class="table-wrap"><table><thead><tr><th style="text-align:left">Concepto</th><th>Presupuesto</th><th>Real</th><th>Desviación $</th><th>Desv. %</th><th>Estado</th></tr></thead><tbody id="bodyResumen"></tbody></table></div>
+    </div>
+    <div id="panel-detalle" class="panel">
+      <div class="filter-bar">
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchDetalle" placeholder="Buscar concepto..." oninput="applyFilters()" autocomplete="off">
+          <button class="clear-btn" id="clearSearch" onclick="clearSearch()" title="Limpiar">✕</button>
+        </div>
+        <div class="filter-chips" id="conceptoChips"></div>
+        <span class="results-count" id="resultsCount"></span>
+      </div>
+      <div class="hint">💡 Doble clic en una fila para ver las transacciones que la componen</div>
+      <div class="table-wrap"><table><thead><tr><th style="text-align:left">Concepto</th><th style="text-align:left">Dimensión</th><th>Presupuesto</th><th>Real</th><th>Desviación $</th><th>Desv. %</th></tr></thead><tbody id="bodyDetalle"></tbody></table></div>
+    </div>
+    <div id="panel-tendencia" class="panel">
+      <div class="chart-grid" style="grid-template-columns:1fr">
+        <div class="chart-box">
+          <div class="chart-title">Evolución mensual · Real vs Presupuesto</div>
+          <div class="legend-row"><span><span class="legend-dot" style="background:#1a3a6b"></span>Presupuesto</span><span><span class="legend-dot" style="background:#2d6a2d"></span>Real</span></div>
+          <div style="position:relative;height:260px"><canvas id="chartTend" role="img" aria-label="Tendencia mensual"></canvas></div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">Desviación acumulada por mes</div>
+          <div style="position:relative;height:200px"><canvas id="chartAcum" role="img" aria-label="Desviación acumulada"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const MESES=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+let PRES_DATA=[], TX_DATA=[], mesesConData=[], mesActivo='acum';
+// Lookup de dimensiones de gasto — fallback cuando no están en el presupuesto
+// Se puede actualizar cargando un nuevo Grupos_Dimensiones_de_Gastos.xlsx en el paso 1.5
+const GRUPOS_LOOKUP = {"702070": {"N": "ALIMENTACIÓN PERSONAL", "C": "Alimentación"}, "702080": {"N": "ALIMENTACIÓN VIAJES", "C": "Alimentación"}, "723050": {"N": "GASTO DE CAFETERÍA Y ARTÍCULOS DE COCINA", "C": "Alimentación"}, "702090": {"N": "ALOJAMIENTO", "C": "Alojamiento"}, "702126": {"N": "SERVICIO DE CERTIFICACION", "C": "Asesorias"}, "718010": {"N": "ASESORÍAS FINANCIERAS, TRIBUTARIAS Y LEGALES", "C": "Asesorias"}, "718011": {"N": "AUDITORIAS", "C": "Asesorias"}, "718012": {"N": "ASESORIA TECNICA", "C": "Asesorias"}, "718013": {"N": "OTRAS ASESORIAS", "C": "Asesorias"}, "718014": {"N": "ASESORIA LEGAL Y TRIBUTARIA", "C": "Asesorias"}, "720010": {"N": "GASTOS LEGALES Y NOTARIALES", "C": "Asesorias"}, "716010": {"N": "FLETE INTERNO", "C": "Oficina"}, "716020": {"N": "FLETE", "C": "Oficina"}, "720040": {"N": "IMPRESORAS / SCANNER", "C": "Oficina"}, "715010": {"N": "MANTENCIÓN DE OFICINA", "C": "Oficina"}, "715011": {"N": "MANTENCIÓN BODEGA", "C": "Oficina"}, "715012": {"N": "REPARACION Y MANTENCION EQUIPO TER", "C": "Oficina"}, "715013": {"N": "SUMINISTROS-CONSUMO MANTENCION CAS", "C": "Oficina"}, "715014": {"N": "SUMINISTROS-CONSUMO MANTENCION OFI", "C": "Oficina"}, "717010": {"N": "ARRIENDO INMUEBLES (CASA, OFICINA, T.C ETC.)", "C": "Oficina"}, "717040": {"N": "ARRIENDO SERVICIOS GENERALES", "C": "Oficina"}, "719011": {"N": "IVA NO RECUPERABLE, SERVICIO TELEFONICO", "C": "Oficina"}, "720025": {"N": "SERVICIO DE REPARACIÓN", "C": "Oficina"}, "720030": {"N": "HARDWARE", "C": "Oficina"}, "720070": {"N": "CORRESPONDENCIA COURRIER", "C": "Oficina"}, "721011": {"N": "SUSCRIPCIONES DIARIOS Y REVISTAS", "C": "Oficina"}, "723020": {"N": "ARTÍCULOS FOTOGRÁFICOS Y DE ENTRETENCIÓN", "C": "Oficina"}, "723030": {"N": "ARTÍCULOS Y PRODUCTOS DE ASEO", "C": "Oficina"}, "723040": {"N": "FOTOCOPIADORA", "C": "Oficina"}, "723060": {"N": "PRODUCTOS EDITORIALES E IMPRESOS", "C": "Oficina"}, "727010": {"N": "AGUA POTABLE", "C": "Oficina"}, "727020": {"N": "ELECTRICIDAD", "C": "Oficina"}, "727030": {"N": "GAS", "C": "Oficina"}, "728010": {"N": "SERVICIOS DE ASEO", "C": "Oficina"}, "729010": {"N": "SERVICIOS DE SEGURIDAD", "C": "Oficina"}, "726010": {"N": "SEGURO DE INSTALACIONES", "C": "Oficina"}, "720080": {"N": "AMORTIZACION SISTEMA INTEGRADO AX", "C": "Otros"}, "703010": {"N": "COVID-19", "C": "Otros"}, "720100": {"N": "GASTOS DE REPRESENTACIÓN", "C": "Otros"}, "720090": {"N": "DONACIONES", "C": "Otros"}, "721013": {"N": "AJUSTE REDONDEO", "C": "Otros"}, "722010": {"N": "CONTRIBUCIONES", "C": "Otros"}, "722020": {"N": "OTROS IMPUESTOS", "C": "Otros"}, "722030": {"N": "PATENTES", "C": "Otros"}, "724010": {"N": "JUICIOS", "C": "Otros"}, "724020": {"N": "MULTAS Y CASTIGOS", "C": "Otros"}, "724021": {"N": "GASTOS NO DEDUCIBLES", "C": "Otros"}, "724030": {"N": "IVA FUERA DE PLAZO", "C": "Otros"}, "724040": {"N": "GASTOS RECHAZADOS", "C": "Otros"}, "724050": {"N": "CASTIGO ACTIVO FIJO", "C": "Otros"}, "726020": {"N": "SEGURO DE RESPONSABILIDAD CIVIL", "C": "Otros"}, "727040": {"N": "GASTOS BANCARIOS", "C": "Otros"}, "727050": {"N": "GASTOS FACTORING", "C": "Otros"}, "731010": {"N": "DEPRECIACIÓN EDIFICIOS E INSTALACIONES", "C": "Otros"}, "731015": {"N": "DEPRECIACIÓN MAQUINARIA Y EQUIPOS", "C": "Otros"}, "731020": {"N": "DEPRECIACIÓN OTROS ACTIVOS FIJOS", "C": "Otros"}, "720050": {"N": "SOFTWARE", "C": "Otros Gastos Personal"}, "702180": {"N": "ELEMENTOS DE PROTECCIÓN PERSONAL", "C": "Otros Gastos Personal"}, "702020": {"N": "SEGURO DEL PERSONAL (SMC+SEG. VIDA + SEG. ACCIDENTE)", "C": "Otros Gastos Personal"}, "702130": {"N": "OTROS GASTOS DE CONTRATACIÓN", "C": "Otros Gastos Personal"}, "702050": {"N": "EXAMENES OCUPACIONALES Y PREOCUPACIONALES", "C": "Otros Gastos Personal"}, "702055": {"N": "GAV OC-EXAMENES OCUPACIONALES Y PREOCUPACIONALES", "C": "Otros Gastos Personal"}, "702110": {"N": "GASTOS DE CAPACITACIÓN", "C": "Otros Gastos Personal"}, "702120": {"N": "SERVICIO DE EVALUACION PSICOLOGICA", "C": "Otros Gastos Personal"}, "702122": {"N": "SERV DE EVALUAC PSICOLOGICA, GAV (CON OC)", "C": "Otros Gastos Personal"}, "702125": {"N": "SERVICIO EVALUACION DESEMPEÑO", "C": "Otros Gastos Personal"}, "702170": {"N": "SERVICIO LAVANDERIA", "C": "Otros Gastos Personal"}, "723070": {"N": "REND ART DE OFICINA Y CELEBRACIONES", "C": "Otros Gastos Personal"}, "702100": {"N": "SERVICIOS DE TRANSPORTE DE PERSONAL", "C": "Otros Gastos Personal"}, "702111": {"N": "SERVICIO DE TRANSPORTE DE PERSONAS", "C": "Otros Gastos Personal"}, "719010": {"N": "SERVICIO TELÉFONO Y COMUNICACIÓN", "C": "Otros Gastos Personal"}, "719012": {"N": "SERVICIO TELEFONO Y COMUNICACION (OC)", "C": "Otros Gastos Personal"}, "720020": {"N": "ACCESORIOS COMPUTACIÓN", "C": "Otros Gastos Personal"}, "723010": {"N": "ARTÍCULOS E INSUMOS DE OFICINA", "C": "Otros Gastos Personal"}, "721010": {"N": "GASTOS GENERALES", "C": "Otros Gastos Personal"}, "725010": {"N": "PUBLICIDAD Y EVENTOS", "C": "Otros Gastos Personal"}, "701310": {"N": "REMUNERACIÓN OFICINA CENTRAL", "C": "Remuneración"}, "702010": {"N": "PROVISIÓN VACACIONES", "C": "Remuneración"}, "701660": {"N": "TRASPASO MANO DE OBRA", "C": "Remuneración"}, "702030": {"N": "SEGURO DE CESANTÍA", "C": "Remuneración"}, "702040": {"N": "APORTE A LA MUTUAL", "C": "Remuneración"}, "702060": {"N": "PROVISIÓN INDEMNIZACIONES", "C": "Remuneración"}, "702065": {"N": "PROVISIÓN REMUNERACIONES", "C": "Remuneración"}, "726030": {"N": "SEGURO DE VEHÍCULOS Y MAQUINARIA", "C": "Viajes"}, "717030": {"N": "ARRIENDO EQUIPO MAYOR", "C": "Viajes"}, "717020": {"N": "ARRIENDO CAMIONETA", "C": "Viajes"}, "702165": {"N": "TAG/PEAJE/COMBUSTIBLE", "C": "Viajes"}, "702140": {"N": "PASAJES AÉREOS", "C": "Viajes"}, "702150": {"N": "PASAJES TERRESTRES", "C": "Viajes"}, "702160": {"N": "TAXI", "C": "Viajes"}, "702091": {"N": "IVA NO RECUPERABLE, SEGUROS Y VIAJES", "C": "Viajes"}, "702141": {"N": "PASAJES AEREOS", "C": "Viajes"}, "702151": {"N": "PASAJES TERRESTRES", "C": "Viajes"}, "702152": {"N": "PASAJES TERRESTRES", "C": "Viajes"}, "718015": {"N": "ASESORIA TECNICA", "C": "Asesorias"}, "720071": {"N": "CORRESPONDENCIA COURRIER", "C": "Oficina"}, "721014": {"N": "GASTOS GENERALES", "C": "Otros Gastos Personal"}, "725020": {"N": "SUSCRIPCIONES DIARIOS Y REVISTAS", "C": "Oficina"}};
+let ccNombre='', ccCodigo='';
+let chartConcepto,chartDev,chartTend,chartAcum;
+
+// ── UTILIDADES ──
+const fmt=n=>'$'+Math.abs(Math.round(n)).toLocaleString('es-CL');
+const fmtN=n=>(n<0?'-':'')+fmt(n);
+const fmtPct=n=>(n>0?'+':'')+n.toFixed(1)+'%';
+const showLoad=(msg='Procesando...')=>{document.getElementById('loading').style.display='flex';document.getElementById('loadingMsg').textContent=msg};
+const hideLoad=()=>document.getElementById('loading').style.display='none';
+
+function showErr(id,msg){const e=document.getElementById(id);e.textContent=msg;e.style.display='block'}
+function hideErr(id){document.getElementById(id).style.display='none'}
+
+// ── DRAG & DROP genérico ──
+function setupDrop(dzId, inputId, onFile) {
+  const dz=document.getElementById(dzId), fi=document.getElementById(inputId);
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-over')});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('drag-over'));
+  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag-over');if(e.dataTransfer.files[0])onFile(e.dataTransfer.files[0])});
+  fi.addEventListener('change',e=>{if(e.target.files[0])onFile(e.target.files[0])});
+}
+
+// ── LEER EXCEL genérico (para Data.xlsx) ──
+function readXlsx(file) {
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=e=>{
+      try{
+        const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        res(XLSX.utils.sheet_to_json(ws,{defval:'',raw:false}));
+      }catch(err){rej(err)}
+    };
+    r.onerror=()=>rej(new Error('No se pudo leer el archivo'));
+    r.readAsArrayBuffer(file);
+  });
+}
+
+// ── LEER PRESUPUESTO por índice de celda (evita problema de columnas duplicadas) ──
+function readPresupuesto(file) {
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=e=>{
+      try{
+        // cellFormula:false → usa valor cacheado, no la fórmula (resuelve archivos con vínculos externos)
+        const wb=XLSX.read(e.target.result,{type:'array',cellDates:true,cellFormula:false});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        // header:1 → array de arrays, evita colisión de columnas con nombre duplicado
+        const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});
+        res(aoa);
+      }catch(err){rej(err)}
+    };
+    r.onerror=()=>rej(new Error('No se pudo leer el archivo'));
+    r.readAsArrayBuffer(file);
+  });
+}
+
+// ── PASO 1: PRESUPUESTO ──
+setupDrop('dz1','fi1', async file=>{
+  if(!file.name.match(/\.(xlsx|xls)$/i)){showErr('err1','El archivo debe ser .xlsx');return}
+  hideErr('err1');
+  showLoad('Leyendo presupuesto...');
+  try{
+    // Leer como array de arrays para manejar columnas con nombre duplicado (ej: dos "Nombre")
+    const aoa=await readPresupuesto(file);
+    if(aoa.length<2)throw new Error('El archivo está vacío');
+
+    const headers=aoa[0]; // fila 0 = cabeceras
+    const dataRows=aoa.slice(1); // filas 1..N = datos
+
+    // Encontrar índices por nombre de columna (maneja duplicados por posición)
+    const findIdx=(kw)=>headers.findIndex(h=>String(h||'').toLowerCase().replace(/[\s.]/g,'').includes(kw.toLowerCase().replace(/[\s.]/g,'')));
+    const findIdxExact=(kw)=>headers.findIndex(h=>String(h||'').trim()===kw);
+
+    const iCC      = findIdxExact('CC')    !== -1 ? findIdxExact('CC')    : 0;
+    const iNomCC   = 1; // siempre col 1 = Nombre del CC
+    const iDim     = findIdx('dgasto')     !== -1 ? findIdx('dgasto')     : 2;
+    const iNomDim  = 3; // siempre col 3 = Nombre de la dimensión (segunda "Nombre", por índice)
+    const iConcepto= findIdxExact('Concepto') !== -1 ? findIdxExact('Concepto') : headers.length-1;
+
+    // Detectar columnas de meses: buscar fechas o patrones yyyy-mm en los headers
+    const mesColIdx={};
+    headers.forEach((h,i)=>{
+      if(!h) return;
+      // Si XLSX.js devuelve la fecha como Date object
+      if(h instanceof Date){
+        const mes=h.getMonth()+1;
+        if(h.getFullYear()>=2020&&h.getFullYear()<=2030) mesColIdx[i]=mes;
+        return;
+      }
+      const s=String(h);
+      // Formato "2026-01-01" o "1/1/2026" o "01/01/2026"
+      const m1=s.match(/^(\d{4})[/-](\d{1,2})/);
+      if(m1&&parseInt(m1[1])>=2020) { mesColIdx[i]=parseInt(m1[2]); return; }
+      const m2=s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+      if(m2&&parseInt(m2[3])>=2020) { mesColIdx[i]=parseInt(m2[1]); return; }
+      // Formato "ene-26", "abr-26", "ago-26"... (texto en español sin reconocer como fecha)
+      const MESES_ES={'ene':1,'feb':2,'mar':3,'abr':4,'may':5,'jun':6,'jul':7,'ago':8,'sep':9,'oct':10,'nov':11,'dic':12};
+      const m3=s.match(/^([a-z]{3})[._-](\d{2,4})$/);
+      if(m3&&MESES_ES[m3[1]]) { mesColIdx[i]=MESES_ES[m3[1]]; return; }
+    });
+
+    if(Object.keys(mesColIdx).length===0)
+      throw new Error('No se encontraron columnas de meses. Verifica que sea el archivo de presupuesto correcto.');
+
+    // Extraer CC y nombre del área desde primera fila con datos
+    const firstDataRow=dataRows.find(r=>r[iCC]&&String(r[iCC]).trim());
+    ccCodigo=firstDataRow?String(firstDataRow[iCC]).trim():'';
+    ccNombre=firstDataRow?String(firstDataRow[iNomCC]||'').trim():'';
+
+    // Construir PRES_DATA usando índices de columna
+    PRES_DATA=[];
+    dataRows.forEach(r=>{
+      const dim=parseFloat(String(r[iDim]||'').replace(/[^0-9.-]/g,''));
+      if(!dim||isNaN(dim))return;
+      const nombreRaw=String(r[iNomDim]||'').replace(/, GAV$/i,'').trim();
+      // Si el nombre está vacío, usar el lookup de grupos como fallback
+      const nombre=nombreRaw || (GRUPOS_LOOKUP[String(Math.round(dim))]||{}).N || String(Math.round(dim));
+      const concepto=String(r[iConcepto]||'Sin concepto').trim();
+      Object.entries(mesColIdx).forEach(([idx,mes])=>{
+        const val=parseFloat(String(r[idx]||'').replace(/[^0-9.-]/g,''));
+        if(!isNaN(val)){
+          PRES_DATA.push({D:Math.round(dim),N:nombre,C:concepto,M:mes,P:val});
+        }
+      });
+    });
+
+    if(!PRES_DATA.length)throw new Error('No se encontraron datos de presupuesto en el archivo.');
+
+    hideLoad();
+    document.getElementById('presLoaded').innerHTML=`
+      <div class="file-loaded">
+        <div class="fl-icon">✅</div>
+        <div><div class="fl-name">${file.name}</div>
+        <div class="fl-sub">CC${ccCodigo} · ${ccNombre} · ${PRES_DATA.length} líneas · ${[...new Set(PRES_DATA.map(r=>r.C))].length} conceptos</div></div>
+      </div>`;
+    document.getElementById('presLoaded').style.display='block';
+    document.getElementById('btn1').disabled=false;
+  }catch(err){
+    hideLoad();
+    showErr('err1','Error: '+err.message);
+  }
+});
+
+
+// ── PASO 1.5: GRUPOS DE DIMENSIONES (opcional) ──
+setupDrop('dz1b','fi1b', async file=>{
+  if(!file.name.match(/\.(xlsx|xls)$/i)){showErr('err1b','El archivo debe ser .xlsx');return}
+  hideErr('err1b');
+  showLoad('Leyendo grupos de dimensiones...');
+  try{
+    const rows=await readXlsx(file);
+    if(!rows.length)throw new Error('El archivo está vacío');
+    const cols=Object.keys(rows[0]);
+    const findC=kw=>cols.find(c=>c.toLowerCase().replace(/[^a-z]/g,'').includes(kw))||'';
+    const colDim=findC('dimension')||findC('dim');
+    const colNom=findC('nombre')||findC('name');
+    const colConc=findC('concepto')||findC('concept');
+    if(!colDim||!colConc)throw new Error('No se encontraron columnas de dimensión y concepto.');
+
+    let actualizadas=0;
+    rows.forEach(r=>{
+      const d=parseInt(r[colDim]);
+      const c=String(r[colConc]||'').trim();
+      const n=String(r[colNom]||'').replace(/, GAV$/i,'').trim();
+      if(d&&c){
+        GRUPOS_LOOKUP[String(d)]={N:n||'Dim '+d,C:c};
+        actualizadas++;
+      }
+    });
+
+    hideLoad();
+    document.getElementById('gruposLoaded').innerHTML=`
+      <div class="file-loaded">
+        <div class="fl-icon">✅</div>
+        <div><div class="fl-name">${file.name}</div>
+        <div class="fl-sub">${actualizadas} dimensiones cargadas</div></div>
+      </div>`;
+    document.getElementById('gruposLoaded').style.display='block';
+    hideErr('err1b');
+  }catch(err){
+    hideLoad();
+    showErr('err1b','Error: '+err.message);
+  }
+});
+
+function goToStep2(){
+  document.getElementById('screen1').style.display='none';
+  document.getElementById('screen1b').style.display='flex';
+}
+function backToStep1(){
+  document.getElementById('screen1b').style.display='none';
+  document.getElementById('screen1').style.display='flex';
+}
+function goToStep3(){
+  document.getElementById('screen1b').style.display='none';
+  document.getElementById('screen2').style.display='flex';
+}
+function backToStep1b(){
+  document.getElementById('screen2').style.display='none';
+  document.getElementById('screen1b').style.display='flex';
+}
+
+// ── PASO 2: DATA ──
+setupDrop('dz2','fi2', async file=>{
+  if(!file.name.match(/\.(xlsx|xls)$/i)){showErr('err2','El archivo debe ser .xlsx');return}
+  hideErr('err2');
+  showLoad('Leyendo datos contables...');
+  try{
+    const rows=await readXlsx(file);
+    if(!rows.length)throw new Error('El archivo está vacío');
+    const cols=Object.keys(rows[0]);
+    const findC=kw=>cols.find(c=>c.toLowerCase().includes(kw.toLowerCase()))||'';
+    const colDim=findC('dimensión de gasto')||findC('dimension de gasto')||findC('dimensiongasto');
+    const colImp=findC('importe clp')||findC('importeclp');
+    const colPer=findC('periodo')||findC('period');
+    const colDesc=findC('descripci');
+    const colProv=findC('proveedor');
+    const colFecha=findC('fecha de transac')||findC('fechatransac');
+    const colCC=findC('projid')||findC('proj id')||findC('centro de costo')||'';
+
+    if(!colDim||!colImp||!colPer)
+      throw new Error('No se encontraron columnas necesarias (Dimensión de gasto, Importe CLP, Periodo). Verifica que sea el Data.xlsx correcto.');
+
+    // Filtrar por CC si la columna existe — evita sumar datos de otros centros de costo
+    const ccNum=parseInt(ccCodigo)||0;
+    const usarFiltroCC = colCC && ccNum>0;
+
+    let rowsFiltradas = rows;
+    if(usarFiltroCC){
+      rowsFiltradas = rows.filter(r=>parseInt(r[colCC])===ccNum);
+      // Si el filtro eliminó todo, probablemente el campo CC no coincide — usar todo
+      if(!rowsFiltradas.length) rowsFiltradas = rows;
+    }
+
+    TX_DATA=rowsFiltradas.map(r=>({
+      D:Number(r[colDim])||0,
+      I:parseFloat(String(r[colImp]).replace(/[^0-9.-]/g,''))||0,
+      M:Number(String(r[colPer]).slice(-2))||0,
+      Desc:String(r[colDesc]||''),
+      Prov:String(r[colProv]||''),
+      Fecha:r[colFecha]?String(r[colFecha]).slice(0,10):''
+    })).filter(r=>r.D>0&&r.M>=1&&r.M<=12&&r.I!==0);
+
+    mesesConData=[...new Set(TX_DATA.map(r=>r.M))].sort((a,b)=>a-b);
+    if(!mesesConData.length)throw new Error('No se encontraron registros con período válido en el archivo.');
+
+    hideLoad();
+    document.getElementById('dataLoaded').innerHTML=`
+      <div class="file-loaded">
+        <div class="fl-icon">✅</div>
+        <div><div class="fl-name">${file.name}</div>
+        <div class="fl-sub">${mesesConData.map(m=>MESES[m]).join(', ')} · ${TX_DATA.length} registros</div></div>
+      </div>`;
+    document.getElementById('dataLoaded').style.display='block';
+    document.getElementById('btn2').disabled=false;
+  }catch(err){
+    hideLoad();
+    showErr('err2','Error: '+err.message);
+  }
+});
+
+function launchDashboard(){
+  mesActivo='acum';
+  document.getElementById('screen2').style.display='none';
+  document.getElementById('dashboard').style.display='block';
+  document.getElementById('tbTitle').textContent=`Dashboard GAV · CC${ccCodigo}`;
+  document.getElementById('tbSub').textContent=ccNombre+' · 2026';
+  document.getElementById('dataBadge').textContent=mesesConData.map(m=>MESES[m]).join(', ')+' · '+TX_DATA.length+' registros';
+  buildNav(); renderAll();
+}
+
+function updateData(){
+  // Volver solo al paso 2, manteniendo presupuesto
+  document.getElementById('dashboard').style.display='none';
+  document.getElementById('dataLoaded').style.display='none';
+  document.getElementById('btn2').disabled=true;
+  document.getElementById('fi2').value='';
+  hideErr('err2');
+  document.getElementById('screen2').style.display='flex';
+}
+
+function fullReset(){
+  PRES_DATA=[]; TX_DATA=[]; mesesConData=[]; mesActivo='acum'; ccNombre=''; ccCodigo='';
+  ['fi1','fi2'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('presLoaded').style.display='none';
+  document.getElementById('dataLoaded').style.display='none';
+  document.getElementById('btn1').disabled=true;
+  document.getElementById('btn2').disabled=true;
+  document.getElementById('dashboard').style.display='none';
+  document.getElementById('screen2').style.display='none';
+  document.getElementById('screen1b').style.display='none';
+  document.getElementById('screen1').style.display='flex';
+}
+
+// ── LÓGICA DE DATOS ──
+function getMeses(){return mesActivo==='acum'?mesesConData:[mesActivo]}
+
+function getConceptoMap(){
+  const m={};
+  PRES_DATA.forEach(r=>{
+    if(!m[r.D]){
+      // Si el nombre del presupuesto es el código numérico o está vacío, usar lookup
+      const g=GRUPOS_LOOKUP[String(r.D)];
+      const nombre = (r.N && r.N!==String(r.D) && !r.N.startsWith('Dim '))
+        ? r.N
+        : (g ? g.N : r.N);
+      m[r.D]={N:nombre, C:r.C};
+    }
+  });
+  // Completar con lookup para dimensiones que están en Data pero no en presupuesto
+  TX_DATA.forEach(r=>{
+    if(!m[r.D]){
+      const g=GRUPOS_LOOKUP[String(r.D)];
+      m[r.D]=g?{N:g.N,C:g.C}:{N:'Dim '+r.D,C:'Sin concepto'};
+    }
+  });
+  return m;
+}
+
+function getResumen(){
+  const meses=getMeses(), cmap=getConceptoMap(), pByC={}, rByC={};
+  PRES_DATA.filter(r=>meses.includes(r.M)).forEach(r=>{ pByC[r.C]=(pByC[r.C]||0)+r.P; });
+  TX_DATA.filter(r=>meses.includes(r.M)).forEach(r=>{
+    const c=(cmap[r.D]||{}).C||'Sin concepto';
+    rByC[c]=(rByC[c]||0)+r.I;
+  });
+  const cs=[...new Set([...Object.keys(pByC),...Object.keys(rByC)])].sort();
+  return cs.map(c=>{const p=pByC[c]||0,re=rByC[c]||0,dev=re-p;return{C:c,P:p,R:re,Dev:dev,Pct:p?+((dev/p)*100).toFixed(1):0}});
+}
+
+function getDetalleFiltrado(){
+  return getDetalle().filter(r => {
+    const matchConcepto = filtrosConcepto.size === 0 || filtrosConcepto.has(r.C);
+    const matchBusqueda = !filtroBusqueda || r.C.toLowerCase().includes(filtroBusqueda);
+    return matchConcepto && matchBusqueda;
+  });
+}
+
+function getDetalle(){
+  const meses=getMeses(), cmap=getConceptoMap();
+  const dimsConPres=[...new Set(PRES_DATA.filter(r=>meses.includes(r.M)).map(r=>r.D))];
+  const dimsConReal=[...new Set(TX_DATA.filter(r=>meses.includes(r.M)).map(r=>r.D))];
+  // Unir ambas listas: dims con presupuesto + dims que solo tienen real
+  const dims=[...new Set([...dimsConPres,...dimsConReal])];
+  const rByD={};
+  TX_DATA.filter(r=>meses.includes(r.M)).forEach(r=>{rByD[r.D]=(rByD[r.D]||0)+r.I});
+  return dims.map(d=>{
+    const inf=cmap[d]||{N:'Dim '+d,C:'Sin concepto'};
+    const p=PRES_DATA.filter(r=>r.D===d&&meses.includes(r.M)).reduce((a,b)=>a+b.P,0);
+    const re=rByD[d]||0, dev=re-p;
+    return{D:d,N:inf.N,C:inf.C,P:p,R:re,Dev:dev,Pct:p?+((dev/p)*100).toFixed(1):0};
+  }).sort((a,b)=>a.C.localeCompare(b.C)||a.N.localeCompare(b.N));
+}
+
+function getTX(dim){
+  const meses=getMeses();
+  return TX_DATA.filter(r=>r.D===dim&&meses.includes(r.M)&&r.I!==0);
+}
+
+function getTotalesFiltrados(){
+  // Calcula totales solo de las filas visibles en la tabla detalle
+  // Esto conecta los KPIs con los filtros activos
+  const rows = getDetalleFiltrado();
+  const P=rows.reduce((a,b)=>a+b.P,0), R=rows.reduce((a,b)=>a+b.R,0);
+  const hayFiltro = filtrosConcepto.size>0 || filtroBusqueda.length>0;
+  return{P,R,Dev:R-P,Pct:P?+((R-P)/P*100).toFixed(1):0,filtrado:hayFiltro,nRows:rows.length};
+}
+
+function getTotales(){
+  const rows=getResumen(), P=rows.reduce((a,b)=>a+b.P,0), R=rows.reduce((a,b)=>a+b.R,0);
+  return{P,R,Dev:R-P,Pct:P?+((R-P)/P*100).toFixed(1):0,filtrado:false};
+}
+
+// ── RENDER ──
+function badge(pct){
+  if(pct>5)return`<span class="badge badge-over">▲ ${fmtPct(pct)}</span>`;
+  if(pct<-5)return`<span class="badge badge-under">▼ ${fmtPct(pct)}</span>`;
+  return`<span class="badge badge-neutral">${fmtPct(pct)}</span>`;
+}
+
+function buildNav(){
+  const btns=[{label:'Acumulado',val:'acum'},...mesesConData.map(m=>({label:MESES[m],val:m}))];
+  document.getElementById('monthsNav').innerHTML=btns.map(b=>
+    `<button class="m-btn ${b.val===mesActivo?'active':''}" onclick="setMes(${typeof b.val==='string'?`'${b.val}'`:b.val})">${b.label}</button>`
+  ).join('');
+}
+
+function renderKPIs(){
+  // Si hay filtro activo en detalle, los KPIs reflejan solo lo filtrado
+  const hayFiltro = filtrosConcepto.size>0 || filtroBusqueda.length>0;
+  const t = hayFiltro ? getTotalesFiltrados() : getTotales();
+  const r = getResumen();
+  const filasFiltradas = hayFiltro ? getDetalleFiltrado() : null;
+  const al = hayFiltro ? filasFiltradas.filter(x=>x.Pct>5).length : r.filter(x=>x.Pct>5).length;
+  const totalGrupos = hayFiltro ? filasFiltradas.length : r.length;
+
+  const lbl=mesActivo==='acum'?`Acum. ${mesesConData.map(m=>MESES[m]).join('–')}`:MESES[mesActivo];
+  const filtroTag = hayFiltro
+    ? `<span style="font-size:10px;background:#f0efe9;border:1px solid #d8d6ce;border-radius:3px;padding:1px 6px;margin-left:6px;font-family:var(--mono);color:var(--text3)">FILTRADO</span>`
+    : '';
+
+  document.getElementById('kpiArea').innerHTML=`
+    <div class="kpi"><div class="kpi-label">Presupuesto · ${lbl}${filtroTag}</div><div class="kpi-value">${fmt(t.P)}</div><div class="kpi-sub">Total comprometido</div></div>
+    <div class="kpi"><div class="kpi-label">Gasto real · ${lbl}${filtroTag}</div><div class="kpi-value">${fmt(t.R)}</div><div class="kpi-sub">Registrado en contabilidad</div></div>
+    <div class="kpi ${t.Dev>0?'kpi-alert':'kpi-ok'}"><div class="kpi-label">Desviación total${filtroTag}</div><div class="kpi-value">${fmtN(t.Dev)}</div><div class="kpi-sub">${fmtPct(t.Pct)} del presupuesto</div></div>
+    <div class="kpi ${al>0?'kpi-alert':'kpi-ok'}"><div class="kpi-label">${hayFiltro?'Dimensiones sobre ppto':'Conceptos sobre presupuesto'}${filtroTag}</div><div class="kpi-value">${al}</div><div class="kpi-sub">de ${totalGrupos} ${hayFiltro?'dimensiones':'grupos'} activos</div></div>`;
+}
+
+function renderTablaResumen(){
+  const rows=getResumen(), t=getTotales();
+  document.getElementById('bodyResumen').innerHTML=
+    rows.map(r=>`<tr>
+      <td>${r.C}</td><td class="mono">${fmt(r.P)}</td><td class="mono">${fmt(r.R)}</td>
+      <td class="mono" style="color:${r.Dev>0?'var(--red)':'var(--green)'}">${fmtN(r.Dev)}</td>
+      <td class="mono">${fmtPct(r.Pct)}</td><td>${badge(r.Pct)}</td></tr>`).join('')+
+    `<tr class="total-row"><td>Total</td><td>${fmt(t.P)}</td><td>${fmt(t.R)}</td>
+     <td style="color:${t.Dev>0?'var(--red)':'var(--green)'}">${fmtN(t.Dev)}</td>
+     <td>${fmtPct(t.Pct)}</td><td>${badge(t.Pct)}</td></tr>`;
+}
+
+function renderTablaDetalle(){
+  const rows=getDetalleFiltrado(); let html='';
+  if(!rows.length){
+    document.getElementById('bodyDetalle').innerHTML='<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text3);font-style:italic">Sin resultados para el filtro seleccionado</td></tr>';
+    return;
+  }
+  rows.forEach(r=>{
+    const txs=getTX(r.D), hasTx=txs.length>0;
+    const sid=`sub-${r.D}`, rid=`row-${r.D}`;
+    html+=`<tr class="${hasTx?'drillable':''}" id="${rid}" data-concepto="${r.C}" data-nombre="${r.N.toLowerCase()}" ${hasTx?`ondblclick="toggleDrill('${r.D}','${rid}','${sid}')"`:''}>`
+      +`<td><span class="cpill">${r.C}</span></td>`
+      +`<td class="drill-name" style="max-width:220px;font-size:12px">${r.N}</td>`
+      +`<td class="mono">${fmt(r.P)}</td><td class="mono">${fmt(r.R)}</td>`
+      +`<td class="mono" style="color:${r.Dev>0?'var(--red)':'var(--green)'}">${fmtN(r.Dev)}</td>`
+      +`<td>${badge(r.Pct)}</td></tr>`;
+    if(hasTx){
+      const total=txs.reduce((a,b)=>a+b.I,0);
+      html+=`<tr class="drill-row hidden" id="${sid}"><td colspan="6">
+        <div class="drill-inner"><table>
+          <thead><tr><th>Fecha</th><th>Descripción</th><th>Proveedor</th><th style="text-align:right">Importe CLP</th></tr></thead>
+          <tbody>`+
+        txs.map(tx=>`<tr>
+          <td style="white-space:nowrap;font-family:var(--mono)">${tx.Fecha}</td>
+          <td>${tx.Desc}</td>
+          <td style="color:var(--text3)">${tx.Prov||'—'}</td>
+          <td style="text-align:right;font-family:var(--mono);color:${tx.I<0?'var(--red)':'var(--text)'}">${fmtN(tx.I)}</td>
+        </tr>`).join('')+
+        `<tr class="drill-total">
+          <td colspan="3" style="padding-left:32px">Total (${txs.length} registros)</td>
+          <td style="text-align:right;font-family:var(--mono);color:${total<0?'var(--red)':'var(--text)'}">${fmtN(total)}</td>
+        </tr></tbody></table></div></td></tr>`;
+    }
+  });
+  document.getElementById('bodyDetalle').innerHTML=html;
+}
+
+function toggleDrill(d,rid,sid){
+  const row=document.getElementById(rid),sub=document.getElementById(sid);
+  if(!row||!sub)return;
+  const open=row.classList.contains('open');
+  row.classList.toggle('open',!open);
+  sub.classList.toggle('hidden',open);
+}
+
+function renderCharts(){
+  const rows=getResumen();
+  const labels=rows.map(r=>r.C),pres=rows.map(r=>r.P),real=rows.map(r=>r.R),devs=rows.map(r=>r.Pct);
+  if(chartConcepto)chartConcepto.destroy();
+  chartConcepto=new Chart(document.getElementById('chartConcepto'),{type:'bar',
+    data:{labels,datasets:[{label:'Presupuesto',data:pres,backgroundColor:'#1a3a6b',borderRadius:3},{label:'Real',data:real,backgroundColor:'#2d6a2d',borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{font:{size:10},maxRotation:30}},y:{ticks:{callback:v=>'$'+Math.round(v/1e6)+'M'}}}}});
+  if(chartDev)chartDev.destroy();
+  chartDev=new Chart(document.getElementById('chartDev'),{type:'bar',
+    data:{labels,datasets:[{label:'Desv.%',data:devs,backgroundColor:devs.map(v=>v>5?'#8b2020':'#2d6a2d'),borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{font:{size:10},maxRotation:30}},y:{ticks:{callback:v=>v+'%'}}}}});
+}
+
+function renderTendencia(){
+  const meses=mesesConData;
+  const data=meses.map(m=>({
+    M:m,
+    P:PRES_DATA.filter(r=>r.M===m).reduce((a,b)=>a+b.P,0),
+    R:TX_DATA.filter(r=>r.M===m).reduce((a,b)=>a+b.I,0)
+  }));
+  const labels=data.map(r=>MESES[r.M]);
+  if(chartTend)chartTend.destroy();
+  chartTend=new Chart(document.getElementById('chartTend'),{type:'line',
+    data:{labels,datasets:[
+      {label:'Presupuesto',data:data.map(r=>r.P),borderColor:'#1a3a6b',tension:0.3,fill:false,pointRadius:5,borderDash:[5,3]},
+      {label:'Real',data:data.map(r=>r.R),borderColor:'#2d6a2d',tension:0.3,fill:false,pointRadius:5}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{y:{ticks:{callback:v=>'$'+Math.round(v/1e6)+'M'}},x:{ticks:{autoSkip:false}}}}});
+  let acum=0,acumL=[],acumD=[];
+  data.forEach(r=>{acum+=r.R-r.P;acumL.push(MESES[r.M]);acumD.push(acum)});
+  if(chartAcum)chartAcum.destroy();
+  chartAcum=new Chart(document.getElementById('chartAcum'),{type:'bar',
+    data:{labels:acumL,datasets:[{label:'Desv. acumulada',data:acumD,backgroundColor:acumD.map(v=>v>0?'#8b2020':'#2d6a2d'),borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{y:{ticks:{callback:v=>'$'+Math.round(v/1e6)+'M'}},x:{ticks:{autoSkip:false}}}}});
+}
+
+function switchTab(tab){
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['resumen','detalle','tendencia'][i]===tab));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+tab).classList.add('active');
+  if(tab==='tendencia')setTimeout(renderTendencia,50);
+}
+
+function setMes(m){
+  mesActivo=m;
+  // Resetear filtros al cambiar de mes
+  filtrosConcepto.clear();
+  filtroBusqueda='';
+  const inp=document.getElementById('searchDetalle');
+  if(inp) inp.value='';
+  const clr=document.getElementById('clearSearch');
+  if(clr) clr.classList.remove('visible');
+  buildNav();renderAll();
+}
+
+
+// ── FILTROS DETALLE ──
+let filtrosConcepto = new Set(); // vacío = todos
+let filtroBusqueda = '';
+
+function buildConceptoChips(){
+  const conceptos = [...new Set(getDetalle().map(r=>r.C))].sort();
+  const chips = document.getElementById('conceptoChips');
+  if(!chips) return;
+  const todosActivo = filtrosConcepto.size===0;
+  chips.innerHTML =
+    `<button class="chip ${todosActivo?'active':''}" onclick="toggleConcepto('__todos__')">Todos</button>` +
+    conceptos.map(c=>
+      `<button class="chip ${filtrosConcepto.has(c)?'active':''}" onclick="toggleConcepto('${c}')">${c}</button>`
+    ).join('');
+}
+
+function toggleConcepto(c){
+  if(c==='__todos__'){
+    filtrosConcepto.clear();
+  } else {
+    if(filtrosConcepto.has(c)) filtrosConcepto.delete(c);
+    else filtrosConcepto.add(c);
+  }
+  buildConceptoChips();
+  // Rerenderizar tabla con nuevo filtro
+  renderTablaDetalle();
+  // Actualizar contador
+  const total = getDetalle().length;
+  const visible = getDetalleFiltrado().length;
+  const count = document.getElementById('resultsCount');
+  if(count) count.textContent = visible === total ? `${total} dimensiones` : `${visible} de ${total} dimensiones`;
+  renderKPIs();
+}
+
+function clearSearch(){
+  document.getElementById('searchDetalle').value='';
+  document.getElementById('clearSearch').classList.remove('visible');
+  filtroBusqueda='';
+  filtrosConcepto.clear();
+  buildConceptoChips();
+  renderTablaDetalle();
+  const total = getDetalle().length;
+  const count = document.getElementById('resultsCount');
+  if(count) count.textContent = `${total} dimensiones`;
+  renderKPIs();
+}
+
+function applyFilters(){
+  const input = document.getElementById('searchDetalle');
+  filtroBusqueda = input ? input.value.toLowerCase().trim() : '';
+  const clearBtn = document.getElementById('clearSearch');
+  if(clearBtn) clearBtn.classList.toggle('visible', filtroBusqueda.length > 0);
+
+  // Rerenderizar tabla con filtro aplicado — evita cualquier conflicto de estado DOM
+  renderTablaDetalle();
+
+  // Actualizar contador
+  const total = getDetalle().length;
+  const visible = getDetalleFiltrado().length;
+  const count = document.getElementById('resultsCount');
+  if(count) count.textContent = visible === total ? `${total} dimensiones` : `${visible} de ${total} dimensiones`;
+
+  // Actualizar KPIs
+  renderKPIs();
+}
+
+
+
+// ── EXPORTAR EXCEL ──
+function exportarExcel(){
+  // Usar las mismas funciones de cálculo del dashboard, iterando mes a mes
+  const mesesPres = [...new Set(PRES_DATA.map(r=>r.M))].sort((a,b)=>a-b);
+  const mesesReal = [...new Set(TX_DATA.map(r=>r.M))].sort((a,b)=>a-b);
+  // Todos los meses que tienen presupuesto O real
+  const mesesAll = [...new Set([...mesesPres,...mesesReal])].sort((a,b)=>a-b);
+
+  const cmap = getConceptoMap();
+  const wb   = XLSX.utils.book_new();
+
+  // ── Paleta ──
+  const C_HDR_BG  = '1A3A6B';
+  const C_HDR_FG  = 'FFFFFF';
+  const C_MES_BG  = ['DDE6F0','EBF2F9'];
+  const C_TOT_BG  = 'C6D5E8';
+  const C_FIL_BG  = 'F5F4F0';
+  const C_FIL2_BG = 'FFFFFF';
+  const C_TOT_FIL = 'E8EEF5';
+  const C_OVER    = '8B2020';
+  const C_UNDER   = '2D6A2D';
+  const C_DARK    = '1A1916';
+  const C_GRAY    = '6B6960';
+  const FMT_NUM   = '#,##0';
+  const FMT_PCT   = '0.00"%"';
+
+  function mkCell(v, t, fmt, opts={}){
+    return {
+      t: t||'s', v: v,
+      s:{
+        font:{name:'Arial',sz:opts.sz||9,bold:opts.bold||false,color:{rgb:opts.color||C_DARK}},
+        fill:opts.bg?{patternType:'solid',fgColor:{rgb:opts.bg}}:{patternType:'none'},
+        alignment:{horizontal:opts.align||'right',vertical:'center'},
+        border:{top:{style:'thin',color:{rgb:'D8D6CE'}},bottom:{style:'thin',color:{rgb:'D8D6CE'}},
+                left:{style:'thin',color:{rgb:'D8D6CE'}},right:{style:'thin',color:{rgb:'D8D6CE'}}},
+        numFmt:fmt||'@'
+      }
+    };
+  }
+
+  function colLetter(n){
+    let s=''; n++;
+    while(n>0){s=String.fromCharCode(65+(n-1)%26)+s;n=Math.floor((n-1)/26);}
+    return s;
+  }
+
+  // ── Calcula datos para una fila dado un array de meses ──
+  function calcFila(pFn, rFn){
+    // pFn(mes) → presupuesto del mes, rFn(mes) → real del mes
+    const d={};
+    mesesAll.forEach(m=>{ d[m]={P:pFn(m),R:rFn(m)}; });
+    return d;
+  }
+
+  // ── Construir hoja pivot ──
+  function buildSheet(titulo, rows, colLabel){
+    const ws={}, merges=[];
+    const nMeses=mesesAll.length;
+    const totalCols=1+nMeses*3+3;
+    let R=1;
+    // Meses que tienen al menos un registro real — para el cálculo del total
+    const mesesConReal = mesesAll.filter(m=>
+      rows.filter(r=>!r.isTotal).some(r=>(r.data[m]||{R:0}).R!==0)
+    );
+
+    // Título
+    ws[`A${R}`]=mkCell(`CONTROL PRESUPUESTARIO GAV · CC${ccCodigo} · ${ccNombre}`,'s','',
+      {bold:true,sz:12,align:'left',bg:C_HDR_BG,color:C_HDR_FG});
+    merges.push({s:{r:R-1,c:0},e:{r:R-1,c:totalCols-1}});
+    R++;
+    ws[`A${R}`]=mkCell(`${titulo} · Año 2026`,'s','',{sz:10,align:'left',bg:'2D4A6B',color:C_HDR_FG});
+    merges.push({s:{r:R-1,c:0},e:{r:R-1,c:totalCols-1}});
+    R++;
+
+    // Cabecera nivel 1 — meses
+    ws[`A${R}`]=mkCell(colLabel,'s','',{bold:true,bg:C_HDR_BG,color:C_HDR_FG,align:'left',sz:9});
+    let col=1;
+    mesesAll.forEach((m,mi)=>{
+      ws[`${colLetter(col)}${R}`]=mkCell(MESES[m],'s','',
+        {bold:true,bg:C_HDR_BG,color:C_HDR_FG,align:'center',sz:9});
+      merges.push({s:{r:R-1,c:col},e:{r:R-1,c:col+2}});
+      col+=3;
+    });
+    ws[`${colLetter(col)}${R}`]=mkCell('TOTAL','s','',
+      {bold:true,bg:C_TOT_BG,color:C_DARK,align:'center',sz:9});
+    merges.push({s:{r:R-1,c:col},e:{r:R-1,c:col+2}});
+    R++;
+
+    // Cabecera nivel 2 — Ppto/Real/Desv%
+    ws[`A${R}`]=mkCell('','s','',{bold:true,bg:C_HDR_BG,color:C_HDR_FG});
+    col=1;
+    mesesAll.forEach(()=>{
+      ['Presupuesto','Real','Desv. %'].forEach((h,hi)=>{
+        ws[`${colLetter(col+hi)}${R}`]=mkCell(h,'s','',
+          {bold:true,bg:C_HDR_BG,color:C_HDR_FG,align:'right',sz:9});
+      });
+      col+=3;
+    });
+    ['Presupuesto','Real','Desv. %'].forEach((h,hi)=>{
+      ws[`${colLetter(col+hi)}${R}`]=mkCell(h,'s','',
+        {bold:true,bg:C_TOT_BG,color:C_DARK,align:'right',sz:9});
+    });
+    R++;
+
+    // Filas de datos
+    rows.forEach((row,ri)=>{
+      const isTotal=row.isTotal;
+      const rowBg=isTotal?C_TOT_FIL:(ri%2===0?C_FIL_BG:C_FIL2_BG);
+      ws[`A${R}`]=mkCell(row.label,'s','',{bold:isTotal,bg:rowBg,align:'left',sz:9});
+
+      let sumP=0, sumR=0; col=1;
+      mesesAll.forEach(m=>{
+        const d=row.data[m]||{P:0,R:0};
+        // Presupuesto total: solo sumar meses que tienen data real en alguna dimensión
+        if(mesesConReal.includes(m)) sumP+=d.P;
+        sumR+=d.R;
+        const pct=d.P?(d.R-d.P)/d.P*100:0;
+        const colBg=isTotal?C_TOT_FIL:rowBg;
+        ws[`${colLetter(col)}${R}`]=mkCell(Math.round(d.P),'n',FMT_NUM,{bg:colBg,sz:9,bold:isTotal});
+        ws[`${colLetter(col+1)}${R}`]=mkCell(Math.round(d.R),'n',FMT_NUM,{bg:colBg,sz:9,bold:isTotal});
+        const cc=pct>5?C_OVER:pct<-5?C_UNDER:C_GRAY;
+        ws[`${colLetter(col+2)}${R}`]=mkCell(parseFloat(pct.toFixed(2)),'n',FMT_PCT,
+          {bg:colBg,color:cc,sz:9,bold:isTotal});
+        col+=3;
+      });
+
+      const totPct=sumP?(sumR-sumP)/sumP*100:0;
+      const totCC=totPct>5?C_OVER:totPct<-5?C_UNDER:C_GRAY;
+      ws[`${colLetter(col)}${R}`]=mkCell(Math.round(sumP),'n',FMT_NUM,{bg:C_TOT_BG,bold:true,sz:9});
+      ws[`${colLetter(col+1)}${R}`]=mkCell(Math.round(sumR),'n',FMT_NUM,{bg:C_TOT_BG,bold:true,sz:9});
+      ws[`${colLetter(col+2)}${R}`]=mkCell(parseFloat(totPct.toFixed(2)),'n',FMT_PCT,
+        {bg:C_TOT_BG,color:totCC,bold:true,sz:9});
+      R++;
+    });
+
+    ws['!ref']=`A1:${colLetter(totalCols-1)}${R-1}`;
+    ws['!merges']=merges;
+    const colWidths=[{wch:colLabel==='Concepto'?22:40}];
+    mesesAll.forEach(()=>{colWidths.push({wch:13},{wch:13},{wch:10});});
+    colWidths.push({wch:13},{wch:13},{wch:10});
+    ws['!cols']=colWidths;
+    ws['!freeze']={xSplit:1,ySplit:4};
+    return ws;
+  }
+
+  // ══════════════════════════════════════════
+  // DATOS HOJA 1 — RESUMEN POR CONCEPTO
+  // usando getResumen() por cada mes
+  // ══════════════════════════════════════════
+  const mesActivoOrig = mesActivo;
+
+  // Recopilar todos los conceptos posibles (presupuesto + real sin concepto)
+  const conceptosSet = new Set();
+  mesesAll.forEach(m=>{
+    mesActivo=m;
+    getResumen().forEach(r=>conceptosSet.add(r.C));
+  });
+  mesActivo=mesActivoOrig;
+  const conceptosList = [...conceptosSet].sort();
+
+  const dataCexp={};
+  conceptosList.forEach(c=>{ dataCexp[c]={}; mesesAll.forEach(m=>{ dataCexp[c][m]={P:0,R:0}; }); });
+
+  mesesAll.forEach(m=>{
+    mesActivo=m;
+    getResumen().forEach(r=>{
+      if(dataCexp[r.C]&&dataCexp[r.C][m]) { dataCexp[r.C][m].P=r.P; dataCexp[r.C][m].R=r.R; }
+    });
+  });
+  mesActivo=mesActivoOrig;
+
+  // Total general
+  const totalCexp={};
+  mesesAll.forEach(m=>{ totalCexp[m]={P:0,R:0}; });
+  conceptosList.forEach(c=>{ mesesAll.forEach(m=>{
+    totalCexp[m].P+=dataCexp[c][m].P; totalCexp[m].R+=dataCexp[c][m].R;
+  });});
+
+  const rowsC=[
+    ...conceptosList.map(c=>({label:c,data:dataCexp[c],isTotal:false})),
+    {label:'TOTAL GENERAL',data:totalCexp,isTotal:true}
+  ];
+  XLSX.utils.book_append_sheet(wb, buildSheet('Resumen por Concepto',rowsC,'Concepto'), 'Resumen por Concepto');
+
+  // ══════════════════════════════════════════
+  // DATOS HOJA 2 — DETALLE POR DIMENSIÓN
+  // usando getDetalle() por cada mes
+  // ══════════════════════════════════════════
+  const dimsSet=new Set();
+  mesesAll.forEach(m=>{
+    mesActivo=m;
+    getDetalle().forEach(r=>dimsSet.add(r.D));
+  });
+  mesActivo=mesActivoOrig;
+  const dimsList=[...dimsSet];
+  // Ordenar por concepto luego nombre
+  dimsList.sort((a,b)=>{
+    const ra=getDetalle().find&&null; // no podemos llamar getDetalle aquí sin cambiar mes
+    // Ordenar por cmap
+    const ca=(cmap[a]||{C:'~'}).C, cb=(cmap[b]||{C:'~'}).C;
+    return ca.localeCompare(cb)||(cmap[a]||{N:String(a)}).N.localeCompare((cmap[b]||{N:String(b)}).N);
+  });
+
+  const dataDexp={};
+  dimsList.forEach(d=>{ dataDexp[d]={}; mesesAll.forEach(m=>{ dataDexp[d][m]={P:0,R:0}; }); });
+
+  mesesAll.forEach(m=>{
+    mesActivo=m;
+    getDetalle().forEach(r=>{
+      if(dataDexp[r.D]&&dataDexp[r.D][m]) { dataDexp[r.D][m].P=r.P; dataDexp[r.D][m].R=r.R; }
+    });
+  });
+  mesActivo=mesActivoOrig;
+
+  const totalDexp={};
+  mesesAll.forEach(m=>{ totalDexp[m]={P:0,R:0}; });
+  dimsList.forEach(d=>{ mesesAll.forEach(m=>{
+    totalDexp[m].P+=dataDexp[d][m].P; totalDexp[m].R+=dataDexp[d][m].R;
+  });});
+
+  const rowsD=[
+    ...dimsList.map(d=>({label:(cmap[d]||{N:'Dim '+d}).N,data:dataDexp[d],isTotal:false})),
+    {label:'TOTAL GENERAL',data:totalDexp,isTotal:true}
+  ];
+  XLSX.utils.book_append_sheet(wb, buildSheet('Detalle por Dimensión de Gasto',rowsD,'Dimensión de Gasto'), 'Detalle por Dimensión');
+
+  // ── Restaurar mes activo y descargar ──
+  mesActivo=mesActivoOrig;
+  buildNav();
+  const fecha=new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `GAV_CC${ccCodigo}_${fecha}.xlsx`);
+}
+
+function renderAll(){
+  renderKPIs();renderTablaResumen();renderTablaDetalle();renderCharts();
+  buildConceptoChips();
+}
+</script>
+</body>
+</html>
